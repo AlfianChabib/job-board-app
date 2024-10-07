@@ -1,0 +1,233 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum UserType {
+  JobSeeker
+  Company
+}
+
+enum JobType {
+  PartTime
+  FullTime
+  Contract
+}
+
+enum ApplicationStatus {
+  Offer
+  Accepted
+  Interview
+  Successful
+  Unsuccessful
+}
+
+enum InterviewType {
+  Online
+  Offline
+}
+
+enum InterviewStatus {
+  Sending
+  Accept
+  Canceled
+  Rescheduling
+  Finished
+}
+
+model User {
+  id             Int             @id @default(autoincrement())
+  username       String
+  email          String          @unique
+  role           UserType        @default(JobSeeker)
+  UserProfile    UserProfile?
+  CompanyProfile CompanyProfile?
+  AuthDetail     AuthDetail?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@map("users")
+}
+
+model AuthDetail {
+  id               Int            @id @default(autoincrement())
+  email            String         @unique
+  hashPassword     String?
+  verified         Boolean        @default(false)
+  verificationCode String?
+  refreshToken     RefreshToken[]
+  user             User?          @relation(fields: [userId], references: [id])
+  userId           Int?           @unique
+}
+
+model RefreshToken {
+  id           Int         @id @default(autoincrement())
+  hashToken    String
+  revoked      Boolean     @default(false)
+  expiry       DateTime
+  AuthDetail   AuthDetail? @relation(fields: [authDetailId], references: [id])
+  authDetailId Int?
+}
+
+model UserProfile {
+  id                 Int                  @id @default(autoincrement())
+  user               User                 @relation(fields: [userId], references: [id])
+  userId             Int                  @unique
+  email              String?
+  phone              String?
+  address            String?
+  username           String?
+  image              String?
+  summary            String?              @db.Text
+  userSkill          UserSkill[]
+  userExperience     UserExperience[]
+  userClassification UserClassification[]
+  userEducation      UserEducation[]
+  application        Application[]
+  userResume         UserResume?
+}
+
+model UserExperience {
+  id            Int         @id @default(autoincrement())
+  userProfile   UserProfile @relation(fields: [userProfileId], references: [id])
+  userProfileId Int
+  jobTitle      String
+  companyName   String
+  description   String?
+  started       DateTime
+  ended         DateTime?
+  stillInRole   Boolean     @default(false)
+}
+
+model UserSkill {
+  id            Int         @id @default(autoincrement())
+  UserProfile   UserProfile @relation(fields: [userProfileId], references: [id])
+  userProfileId Int
+  skillTitle    String
+}
+
+model UserClassification {
+  id                 Int               @id @default(autoincrement())
+  UserProfile        UserProfile       @relation(fields: [userProfileId], references: [id])
+  userProfileId      Int
+  classification     Classification?   @relation(fields: [classificationId], references: [id])
+  classificationId   Int?
+  subClassification  SubClassificaion? @relation(fields: [subClassificaionId], references: [id])
+  subClassificaionId Int?
+}
+
+model UserEducation {
+  id                    Int         @id @default(autoincrement())
+  UserProfile           UserProfile @relation(fields: [userProfileId], references: [id])
+  userProfileId         Int
+  courseOrQualification String
+  institution           String
+  isComplete            Boolean     @default(false)
+  finishedYear          String?
+  description           String?
+}
+
+model UserResume {
+  id            Int         @id @default(autoincrement())
+  UserProfile   UserProfile @relation(fields: [userProfileId], references: [id])
+  userProfileId Int         @unique
+  resumeUrl     String?
+}
+
+model CompanyProfile {
+  id          Int     @id @default(autoincrement())
+  user        User    @relation(fields: [userId], references: [id])
+  userId      Int     @unique
+  email       String?
+  phone       String?
+  companyName String?
+  logo        String?
+  address     String?
+  description String? @db.Text
+  job         Job[]
+}
+
+model Job {
+  id                   Int                 @id @default(autoincrement())
+  CompanyProfile       CompanyProfile      @relation(fields: [companyProfileId], references: [id])
+  companyProfileId     Int
+  title                String
+  description          String              @db.Text
+  requirements         String              @db.Text
+  location             String
+  jobType              JobType             @default(PartTime)
+  registrationDeadline DateTime
+  classificationInfo   ClassificationInfo?
+  application          Application[]
+  deleted              Boolean             @default(false)
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  @@map("jobs")
+}
+
+model Application {
+  id            Int               @id @default(autoincrement())
+  Job           Job?              @relation(fields: [jobId], references: [id])
+  jobId         Int?
+  UserProfile   UserProfile?      @relation(fields: [userProfileId], references: [id])
+  userProfileId Int?
+  status        ApplicationStatus @default(Offer)
+  resume        String
+  interview     Interview?
+
+  @@map("applications")
+}
+
+model Interview {
+  id                  Int              @id @default(autoincrement())
+  interviewSchedule   DateTime?
+  rescheduleInterview DateTime?
+  interviewType       InterviewType?   @default(Online)
+  interviewUrl        String?
+  interviewLocation   String?
+  interviewStatus     InterviewStatus? @default(Sending)
+  Application         Application?     @relation(fields: [applicationId], references: [id])
+  applicationId       Int?             @unique
+}
+
+model ClassificationInfo {
+  id                  Int               @id @default(autoincrement())
+  classification      Classification?   @relation(fields: [classificationId], references: [id])
+  classificationId    Int?
+  subClassification   SubClassificaion? @relation(fields: [subClassificationId], references: [id])
+  subClassificationId Int?
+  Job                 Job               @relation(fields: [jobId], references: [id])
+  jobId               Int               @unique
+}
+
+model Classification {
+  id                 Int                  @id @default(autoincrement())
+  title              String               @db.Text
+  subClassification  SubClassificaion[]
+  ClassificationInfo ClassificationInfo[]
+  UserClassification UserClassification[]
+
+  @@map("classifications")
+}
+
+model SubClassificaion {
+  id                 Int                  @id @default(autoincrement())
+  title              String               @db.Text
+  Classification     Classification?      @relation(fields: [classificationId], references: [id])
+  classificationId   Int?
+  ClassificationInfo ClassificationInfo[]
+  UserClassification UserClassification[]
+
+  @@map("subClassifications")
+}
+
+model Skill {
+  id   Int    @id @default(autoincrement())
+  Text String @db.Text
+}
